@@ -145,7 +145,7 @@ npm test
 
 To fulfill course criteria requiring both members to contribute to database design, implementation, and application code:
 
-### Teammate A (Slice A): Relational Core & Scanning Engine
+### Teammate ksa (Slice A): Relational Core & Scanning Engine
 - **Database Responsibilities**:
   - PostgreSQL schema design (`users`, `identities`, `breaches`, `data_types`, `scan_requests`, `exposures`, `exposure_data_types`, `recovery_actions`, `user_risk_summary`).
   - DDL migrations (`001`, `002`, `003`), constraints, and partial indexes.
@@ -157,7 +157,7 @@ To fulfill course criteria requiring both members to contribute to database desi
   - Exposure drilldown interface (`/exposures/[id]`) and risk breakdown card.
   - Scan rollback verification tests (`tests/scans/test_scan_transaction.ts`).
 
-### Teammate B (Slice B): Document NoSQL, Auth & Analytics
+### Teammate svm (Slice B): Document NoSQL, Auth & Analytics
 - **Database Responsibilities**:
   - MongoDB collection modeling and `$jsonSchema` validators (`breach_records`, `guidance_playbooks`, `audit_logs`).
   - Text indexes, multikey indexes, and compound index configuration.
@@ -172,24 +172,3 @@ To fulfill course criteria requiring both members to contribute to database desi
 
 ---
 
-## 8. Viva Defense & Examination Guide
-
-### Q1: Why use both PostgreSQL and MongoDB instead of just one?
-**Answer**:
-- **PostgreSQL** is required for entities where referential integrity, strict schema consistency, and transactional atomicity are paramount (users, identities, scans, exposures, recovery action states). Relational integrity guarantees that deleting an identity cascades cleanly to its exposures and audit trails.
-- **MongoDB** is optimal for semi-structured data:
-  1. `breach_records` have diverse and unpredictable `extra` fields (e.g. password hashes, API keys, card prefixes) that differ per breach source.
-  2. `guidance_playbooks` benefit from document-oriented nested steps and weighted multi-field full-text search.
-  3. `audit_logs` are high-throughput, append-only logs with polymorphic detail payloads.
-
-### Q2: How do you handle foreign keys between PostgreSQL and MongoDB?
-**Answer**:
-There are **no distributed cross-database foreign keys**. References (such as `recovery_actions.playbook_ref` pointing to MongoDB's `_id` and `breach_records.breach_id` pointing to PostgreSQL's `breach_id`) are maintained at the **application layer**. When registering a breach, a **compensating transaction** is used: PostgreSQL is written first; if the MongoDB write fails, the SQL row is automatically deleted.
-
-### Q3: Why does Trigger T2 fire on `UPDATE OF risk_score` instead of `INSERT ON exposures`?
-**Answer**:
-The risk score calculation depends on rows in `exposure_data_types` (the many-to-many bridge). When an exposure row is first inserted, its associated data types have not yet been inserted. Firing on `INSERT` would result in a score calculated with zero data types. Therefore, the application inserts the exposure, inserts the data types, and then updates `risk_score` using `calculate_exposure_risk()`, at which point Trigger `T2` fires with complete data.
-
-### Q4: How is user privacy protected in administrative analytics?
-**Answer**:
-Query `Q3` (HAVING) and the Admin Analytics dashboard display **strictly aggregated metrics** (e.g. counts of affected anonymous users, percentage distributions). Administrative queries never project `identity_value` or link personal identities to breaches.
